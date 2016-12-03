@@ -1,0 +1,120 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Sean"
+date: "December 3, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(caret)
+library(ggplot2)
+```
+
+### Summary
+
+We'll use the pml-training dataset on predicting the manner that people exercise. The outcome virable is 'classe'. After training the dataset, we will apply the model on the test dataset and predict the 20 manners.
+
+### Import data
+
+Several variables in the testing data shows NA, we will filter them on both training and testing dataset.
+
+```{r cars}
+pml_training <- read.csv('pml-training.csv')
+pml_testing <- read.csv('pml-testing.csv')
+pml_trd <- pml_training %>% 
+    select(-starts_with('max_'), -starts_with('min_'), -starts_with('var_'), 
+           -starts_with('avg_'), -starts_with('stddev_'), -starts_with('amplitude_'), -skewness_yaw_belt,
+           -kurtosis_yaw_forearm, -skewness_yaw_forearm, -skewness_yaw_dumbbell, -kurtosis_yaw_dumbbell,
+           -kurtosis_yaw_belt, -X, -user_name, -raw_timestamp_part_1, -raw_timestamp_part_2, -cvtd_timestamp,
+           -kurtosis_roll_belt, -kurtosis_picth_belt, -skewness_roll_belt, -skewness_roll_belt.1,
+           -kurtosis_roll_arm, -kurtosis_picth_arm, -kurtosis_yaw_arm, -skewness_roll_arm, -skewness_pitch_arm, 
+           -skewness_yaw_arm, -kurtosis_roll_dumbbell, -kurtosis_picth_dumbbell, -skewness_roll_dumbbell, 
+           -skewness_pitch_dumbbell, -kurtosis_roll_forearm, -kurtosis_picth_forearm, -skewness_roll_forearm, 
+           -skewness_pitch_forearm, -new_window)
+```
+
+Convert some factor variables to numeric.
+```{r}
+asNumeric <- function(x) as.numeric(as.character(x))
+factorsNumeric <- function(d) modifyList(d, lapply(d[, sapply(d, is.factor)],   
+                                                   asNumeric))
+
+pmldata <- data.frame(lapply(pml_trd, function(x) as.numeric(x)))
+pmldata <- pmldata %>% select(-classe)
+pmldata <- cbind(pmldata, pml_trd$classe)
+```
+
+
+### Build the model with train control set to cross validation
+
+#### Use rpart
+
+```{r}
+modelFit1 <- train(pmldata$`pml_trd$classe`~ ., method='rpart', preProcess='pca', 
+                   trControl = trainControl(method='cv'), data=pmldata)
+modelFit1$finalModel
+```
+
+```{r}
+plot(modelFit1)
+```
+
+Obviously, the result is very poor with accuracy about 30%. 
+
+#### Use random forest
+
+```{r, eval=FALSE}
+modelFit2 <- train(pmldata$`pml_trd$classe`~ ., method='rf', preProcess='pca',                    trControl = trainControl(method='cv'), data=pmldata)
+
+```
+
+```{r, eval=FALSE}
+modelFit2
+```
+
+> Random Forest 
+
+> 19622 samples
+>   53 predictor
+>    5 classes: 'A', 'B', 'C', 'D', 'E' 
+
+> Pre-processing: principal component signal extraction (53), centered (53), scaled (53) 
+> Resampling: Bootstrapped (25 reps) 
+> Summary of sample sizes: 19622, 19622, 19622, 19622, 19622, 19622, ... 
+> Resampling results across tuning parameters:
+
+>   mtry  Accuracy   Kappa    
+>   2    0.9763976  0.9701402
+>   27    0.9619002  0.9518036
+>   53    0.9619973  0.9519278
+
+> Accuracy was used to select the optimal model using  the largest value.
+> The final value used for the model was mtry = 2. 
+
+* Note: since re-run the ramdon forest takes a lot time, I'll quote the result above. 
+
+#### Convert the testing dataset
+
+```{r}
+pml_testing1 <- pml_testing %>% select(-starts_with('max_'), -starts_with('min_'), -starts_with('var_'), 
+                                       -starts_with('avg_'), -starts_with('stddev_'), -starts_with('amplitude_'), -skewness_yaw_belt,
+                                       -kurtosis_yaw_forearm, -skewness_yaw_forearm, -skewness_yaw_dumbbell, -kurtosis_yaw_dumbbell,
+                                       -kurtosis_yaw_belt, -X, -user_name, -raw_timestamp_part_1, -raw_timestamp_part_2, -cvtd_timestamp,
+                                       -kurtosis_roll_belt, -kurtosis_picth_belt, -skewness_roll_belt, -skewness_roll_belt.1,
+                                       -kurtosis_roll_arm, -kurtosis_picth_arm, -kurtosis_yaw_arm, -skewness_roll_arm, -skewness_pitch_arm, 
+                                       -skewness_yaw_arm, -kurtosis_roll_dumbbell, -kurtosis_picth_dumbbell, -skewness_roll_dumbbell, 
+                                       -skewness_pitch_dumbbell, -kurtosis_roll_forearm, -kurtosis_picth_forearm, -skewness_roll_forearm, 
+                                       -skewness_pitch_forearm, -new_window)
+
+pml_testing1 <- data.frame(lapply(pml_testing1, function(x) as.numeric(x)))  
+```
+
+#### Use modelFit2 to predict
+
+```{r, eval=FALSE}
+predict(modelFit2, newdata = pml_testing1)
+```
+
+>  [1] B A B A A E D B A A B C B A E E A B B B
+Levels: A B C D E
