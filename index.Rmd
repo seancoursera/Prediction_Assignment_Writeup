@@ -2,10 +2,10 @@
 title: "Prediction Assignment Writeup"
 author: "Sean"
 date: "December 3, 2016"
-output: pdf_document
+output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
 library(dplyr)
 library(caret)
 library(ggplot2)
@@ -52,33 +52,57 @@ pmldata <- pmldata %>% select(-classe)
 pmldata <- cbind(pmldata, pml_trd$classe)
 ```
 
+We divide the data into 60/40 to reduce the training time and it will also lower the accuracy. 
+```{r}
+inTrain <- createDataPartition(y = pmldata$`pml_trd$classe`, 
+                               p = 0.60, list = FALSE)
+
+pmltrain<- pmldata[inTrain,]
+pmltest <- pmldata[-inTrain,]
+```
 
 ### Build the model with train control set to cross validation
 
 #### Use rpart
 
 ```{r}
-modelFit1 <- train(pmldata$`pml_trd$classe`~ ., method='rpart', preProcess='pca', 
-                   trControl = trainControl(method='cv'), data=pmldata)
+modelFit1 <- train(pmltrain$`pml_trd$classe`~ ., method='rpart', preProcess='pca', 
+                   trControl = trainControl(method='cv'), data=pmltrain)
 modelFit1$finalModel
+```
+
+```{r}
+predrpart <- predict(modelFit1, newdata = pmltest)
+confusionMatrix(predrpart, pmltest$`pml_trd$classe`)
 ```
 
 ```{r}
 plot(modelFit1)
 ```
 
-Obviously, the result is very poor with accuracy about 30%. 
+Obviously, the result is very poor with accuracy about 34%. 
 
 #### Use random forest
 
-```{r, include=FALSE}
-modelFit2 <- train(pmldata$`pml_trd$classe`~ ., method='rf', preProcess='pca',                    trControl = trainControl(method='cv'), data=pmldata)
+```{r, cache=TRUE}
+modelFit2 <- train(pmltrain$`pml_trd$classe`~ ., method='rf', preProcess='pca',                    trControl = trainControl(method='cv'), data=pmltrain)
 
 ```
 
 ```{r}
 modelFit2
 ```
+
+```{r}
+predrf <- predict(modelFit2, newdata = pmltest)
+confusionMatrix(predrf, pmltest$`pml_trd$classe`)
+```
+
+```{r}
+plot(modelFit2)
+```
+
+Random forest gives a much better accuracy about 97%. We will use it to predict the outcome.
 
 #### Convert the testing dataset
 
